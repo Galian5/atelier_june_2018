@@ -19,6 +19,7 @@
 
 # Learn more: http://github.com/javan/whenever
 
-every '0 0 15 * *' do
-  rake 'reservation:cancel_overreserved', environment: 'development'
+
+every '0 8 * * *' do
+  rake 'expiration:send_expiration_information', environment: 'development'
 end
