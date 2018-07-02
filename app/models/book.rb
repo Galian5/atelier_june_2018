@@ -22,6 +22,28 @@ class Book < ApplicationRecord
     reservations.find_by(user: user, status: 'TAKEN').present?
   end
 
+  def take(user)
+    return unless can_take?(user)
+
+    if available_reservation.present?
+      available_reservation.update_attributes(status: 'TAKEN')
+    else
+      reservations.create(user: user, status: 'TAKEN')
+    end.tap {|reservation|
+      notify_user_calendar(reservation)
+    }
+  end
+
+  def give_back
+    ActiveRecord::Base.transaction do
+      reservations.find_by(status: 'TAKEN').tap { |reservation|
+        reservation.update_attributes(status: 'RETURNED')
+        notify_user_calendar(reservation)
+      }
+      next_in_queue.update_attributes(status: 'AVAILABLE') if next_in_queue.present?
+    end
+  end
+
 
   def can_reserve?(user)
     reservations.find_by(user: user, status: 'RESERVED').nil?
@@ -29,6 +51,10 @@ class Book < ApplicationRecord
 
 
   private
+
+  def notify_user_calendar(reservation)
+    UserCalendarNotifier.new(reservation.user).perform(reservation)
+  end
 
   def not_taken?
     reservations.find_by(status: 'TAKEN').nil?
@@ -49,5 +75,6 @@ class Book < ApplicationRecord
   def available_reservation
     reservations.find_by(status: 'AVAILABLE')
   end
+
 
 end
